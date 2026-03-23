@@ -4,201 +4,359 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>BEAR RADAR — 滋賀クマ出没情報</title>
-
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Noto+Sans+JP:wght@300;400;700&display=swap');
 
 :root{
   --g:#00ff41;--gdim:#00aa2a;--gglow:rgba(0,255,65,.6);
-  --amb:#ffb800;--red:#ff3030;--th:58px;
+  --amb:#ffb800;--red:#ff3030;--cyan:#00e5ff;--th:58px;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;background:#000;font-family:'Share Tech Mono',monospace;color:var(--g);overflow:hidden;}
 #app{display:flex;flex-direction:column;height:100%;max-width:480px;margin:0 auto;}
 
+/* ── BOOT SCREEN ── */
+#boot{
+  position:fixed;inset:0;background:#000;z-index:9999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  transition:opacity .6s ease;
+}
+#boot.hide{opacity:0;pointer-events:none;}
+.boot-logo{font-family:'Orbitron',sans-serif;font-size:28px;font-weight:900;letter-spacing:8px;
+  color:var(--g);text-shadow:0 0 30px var(--gglow),0 0 60px rgba(0,255,65,.3);
+  animation:boot-pulse 1s ease-in-out infinite;}
+@keyframes boot-pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.boot-sub{font-size:9px;letter-spacing:4px;color:var(--gdim);}
+.boot-bar-wrap{width:200px;height:2px;background:rgba(0,255,65,.15);border-radius:1px;overflow:hidden;}
+.boot-bar{height:100%;background:var(--g);box-shadow:0 0 8px var(--gglow);width:0;transition:width 1.8s ease;}
+.boot-status{font-size:8px;letter-spacing:2px;color:rgba(0,255,65,.4);}
+
 /* ── HEADER ── */
-.hdr{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:11px 16px 7px;border-bottom:1px solid rgba(0,255,65,.14);background:rgba(0,0,0,.97);z-index:100;}
+.hdr{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:11px 16px 7px;border-bottom:1px solid rgba(0,255,65,.14);
+  background:rgba(0,0,0,.97);z-index:100;}
+.hdr-left{display:flex;align-items:center;gap:10px;}
 .hdr h1{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;letter-spacing:4px;text-shadow:0 0 12px var(--gglow);}
+.hdr-right{display:flex;align-items:center;gap:8px;}
 .abadge{font-size:9px;letter-spacing:2px;color:var(--red);animation:blink .8s step-end infinite;text-shadow:0 0 8px rgba(255,48,48,.8);}
+/* 音響ボタン */
+.snd-btn{font-size:14px;cursor:pointer;opacity:.4;transition:opacity .2s;background:none;border:none;color:inherit;padding:2px;}
+.snd-btn.on{opacity:1;filter:drop-shadow(0 0 4px var(--gglow));}
 @keyframes blink{50%{opacity:0}}
 
 /* ── PAGES ── */
 .pages{flex:1;overflow:hidden;position:relative;}
-.page{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;opacity:0;pointer-events:none;transition:opacity .2s;}
+.page{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;opacity:0;pointer-events:none;transition:opacity .25s ease;}
 .page.active{opacity:1;pointer-events:all;}
 
 /* ── TAB BAR ── */
 .tabbar{flex-shrink:0;height:var(--th);display:flex;background:#030a03;border-top:1px solid rgba(0,255,65,.2);box-shadow:0 -4px 20px rgba(0,255,65,.08);z-index:200;}
 .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;position:relative;user-select:none;transition:background .2s;}
-.tab:active{background:rgba(0,255,65,.06);}
+.tab:active{background:rgba(0,255,65,.07);}
 .tab.on{background:rgba(0,255,65,.05);}
-.ti{font-size:18px;filter:grayscale(1) brightness(.35);transition:filter .2s;}
+.ti{font-size:18px;filter:grayscale(1) brightness(.35);transition:filter .25s;}
 .tab.on .ti{filter:none;}
-.tl{font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:2px;color:rgba(0,255,65,.3);transition:color .2s;}
+.tl{font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:2px;color:rgba(0,255,65,.3);transition:color .25s;}
 .tab.on .tl{color:var(--g);text-shadow:0 0 8px var(--gglow);}
-.tline{position:absolute;top:0;left:50%;transform:translateX(-50%);width:0;height:2px;background:var(--g);box-shadow:0 0 8px var(--gglow);transition:width .3s;}
-.tab.on .tline{width:40px;}
-.tbadge{position:absolute;top:6px;right:calc(50% - 20px);background:var(--red);color:#fff;font-size:8px;font-family:'Orbitron',sans-serif;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 0 6px rgba(255,48,48,.6);}
+.tline{position:absolute;top:0;left:50%;transform:translateX(-50%);width:0;height:2px;background:var(--g);box-shadow:0 0 8px var(--gglow);border-radius:0 0 3px 3px;transition:width .35s cubic-bezier(.34,1.56,.64,1);}
+.tab.on .tline{width:44px;}
+.tbadge{position:absolute;top:6px;right:calc(50% - 22px);background:var(--red);color:#fff;font-size:8px;font-family:'Orbitron',sans-serif;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px;box-shadow:0 0 6px rgba(255,48,48,.6);animation:badge-pulse 2s ease-in-out infinite;}
+@keyframes badge-pulse{0%,100%{box-shadow:0 0 6px rgba(255,48,48,.6)}50%{box-shadow:0 0 12px rgba(255,48,48,.9)}}
 
-/* ══════════ PAGE: RADAR ══════════ */
-#pRadar{display:flex;flex-direction:column;align-items:center;padding:12px 14px 14px;gap:10px;}
+/* ════════════════════════════════
+   PAGE: RADAR
+════════════════════════════════ */
+#pRadar{display:flex;flex-direction:column;align-items:center;padding:10px 14px 14px;gap:10px;}
 
-/* GPS toggle button */
-.gps-btn{
+/* DATA SOURCE BADGE */
+.src-badge{
   width:100%;max-width:360px;
   display:flex;align-items:center;justify-content:space-between;
-  background:rgba(0,255,65,.04);border:1px solid rgba(0,255,65,.25);
-  border-radius:8px;padding:8px 14px;cursor:pointer;
-  transition:background .2s;
+  padding:5px 12px;
+  background:rgba(0,255,65,.03);border:1px solid rgba(0,255,65,.15);border-radius:4px;
+  font-size:8px;letter-spacing:1px;color:rgba(0,255,65,.5);
 }
-.gps-btn:hover{background:rgba(0,255,65,.08);}
-.gps-btn.active{border-color:var(--g);background:rgba(0,255,65,.08);}
-.gps-btn-left{display:flex;align-items:center;gap:8px;font-size:9px;letter-spacing:2px;}
-.gps-icon{font-size:14px;}
-.gps-status{font-size:8px;color:var(--gdim);letter-spacing:1px;}
-.gps-status.on{color:var(--g);text-shadow:0 0 6px var(--gglow);}
-.gps-status.err{color:var(--red);}
-/* toggle switch */
-.toggle{width:36px;height:18px;background:rgba(0,255,65,.15);border:1px solid rgba(0,255,65,.3);border-radius:9px;position:relative;transition:background .2s;}
-.toggle.on{background:rgba(0,255,65,.35);border-color:var(--g);}
-.toggle::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;background:#000;border-radius:50%;border:2px solid var(--gdim);transition:transform .2s,border-color .2s;}
-.toggle.on::after{transform:translateX(18px);border-color:var(--g);background:var(--g);}
+.src-badge .src-live{color:var(--g);text-shadow:0 0 6px var(--gglow);display:flex;align-items:center;gap:5px;}
+.src-dot{width:5px;height:5px;border-radius:50%;background:var(--g);animation:sp 1.5s ease-in-out infinite;}
 
-.device{width:100%;max-width:360px;background:linear-gradient(160deg,#1e2e1e 0%,#0d1a0e 40%,#060f07 100%);border-radius:24px 24px 55% 55%/24px 24px 36px 36px;padding:16px 16px 28px;box-shadow:0 0 0 2px #2a3d2a,0 0 0 4px #111c11,0 0 40px rgba(0,255,65,.15),inset 0 2px 0 rgba(255,255,255,.05),inset 0 -4px 20px rgba(0,0,0,.8);}
-.sframe{background:#000;border-radius:50%;padding:5px;box-shadow:0 0 0 3px #0d1a0e,0 0 0 5px #1e2e1e,0 0 25px rgba(0,255,65,.2);aspect-ratio:1;width:100%;}
-.screen{width:100%;height:100%;border-radius:50%;background:radial-gradient(ellipse at 40% 35%,#012006 0%,#010802 55%,#000 100%);position:relative;overflow:hidden;cursor:crosshair;}
-.screen::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(0,0,0,.15) 2px,rgba(0,0,0,.15) 4px);border-radius:50%;pointer-events:none;z-index:50;}
-.screen::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.85) 100%);border-radius:50%;pointer-events:none;z-index:51;}
+/* GPS toggle */
+.gps-btn{width:100%;max-width:360px;display:flex;align-items:center;justify-content:space-between;background:rgba(0,255,65,.04);border:1px solid rgba(0,255,65,.22);border-radius:8px;padding:8px 14px;cursor:pointer;transition:background .2s,border-color .2s;}
+.gps-btn:hover{background:rgba(0,255,65,.08);}
+.gps-btn.active{border-color:var(--cyan);background:rgba(0,229,255,.05);}
+.gps-btn-left{display:flex;align-items:center;gap:8px;font-size:9px;letter-spacing:2px;}
+.gps-status{font-size:8px;color:var(--gdim);letter-spacing:1px;margin-top:2px;}
+.gps-status.on{color:var(--cyan);text-shadow:0 0 6px rgba(0,229,255,.5);}
+.gps-status.err{color:var(--red);}
+.toggle{width:36px;height:18px;background:rgba(0,255,65,.12);border:1px solid rgba(0,255,65,.25);border-radius:9px;position:relative;transition:background .25s,border-color .25s;}
+.toggle.on{background:rgba(0,229,255,.3);border-color:var(--cyan);}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;background:#111;border-radius:50%;border:2px solid var(--gdim);transition:transform .25s cubic-bezier(.34,1.56,.64,1),border-color .25s,background .25s;}
+.toggle.on::after{transform:translateX(18px);border-color:var(--cyan);background:var(--cyan);}
+
+/* Device */
+.device{width:100%;max-width:360px;background:linear-gradient(160deg,#1c2c1c 0%,#0c180d 40%,#050e06 100%);border-radius:24px 24px 55% 55%/24px 24px 36px 36px;padding:16px 16px 26px;box-shadow:0 0 0 2px #263626,0 0 0 4px #0f1a10,0 0 50px rgba(0,255,65,.12),inset 0 2px 0 rgba(255,255,255,.04),inset 0 -4px 20px rgba(0,0,0,.9);}
+.sframe{background:#000;border-radius:50%;padding:5px;box-shadow:0 0 0 3px #0c180d,0 0 0 5px #1c2c1c,0 0 30px rgba(0,255,65,.18);aspect-ratio:1;width:100%;}
+.screen{width:100%;height:100%;border-radius:50%;background:radial-gradient(ellipse at 38% 32%,#011a04 0%,#010802 50%,#000 100%);position:relative;overflow:hidden;cursor:crosshair;}
+/* CRT scanlines */
+.screen::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(0,0,0,.18) 2px,rgba(0,0,0,.18) 4px);border-radius:50%;pointer-events:none;z-index:50;}
+/* Vignette */
+.screen::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.9) 100%);border-radius:50%;pointer-events:none;z-index:51;}
+/* Glass reflection */
+.screen-glare{position:absolute;top:4%;left:10%;width:35%;height:20%;background:linear-gradient(135deg,rgba(255,255,255,.04) 0%,transparent 100%);border-radius:50%;pointer-events:none;z-index:52;}
 #rc{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;z-index:1;}
 
-/* blips */
+/* Blips */
 .blip{position:absolute;transform:translate(-50%,-50%);z-index:20;pointer-events:none;}
-.bd{width:10px;height:10px;border-radius:50%;background:var(--red);box-shadow:0 0 6px var(--red),0 0 14px rgba(255,48,48,.6);animation:bp 1.4s ease-in-out infinite;position:relative;z-index:2;}
-.br{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;border:2px solid var(--red);animation:brng 1.4s ease-out infinite;}
-.br2{animation-delay:.5s;}
-@keyframes bp{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.7;transform:scale(1.2)}}
-@keyframes brng{0%{width:10px;height:10px;opacity:.9;border-color:var(--red)}100%{width:40px;height:40px;opacity:0;border-color:var(--amb)}}
+.bd{width:10px;height:10px;border-radius:50%;background:var(--red);box-shadow:0 0 6px var(--red),0 0 14px rgba(255,48,48,.5);animation:bp 1.4s ease-in-out infinite;position:relative;z-index:2;}
+.br{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;border:1.5px solid var(--red);animation:brng 1.6s ease-out infinite;}
+.br2{animation-delay:.6s;}
+@keyframes bp{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.75;transform:scale(1.15)}}
+@keyframes brng{0%{width:10px;height:10px;opacity:.85;border-color:var(--red)}100%{width:44px;height:44px;opacity:0;border-color:rgba(255,184,0,.2)}}
 
-/* self position blip — blue/cyan */
-.blip-self .bd{background:#00e5ff;box-shadow:0 0 8px #00e5ff,0 0 18px rgba(0,229,255,.5);width:12px;height:12px;animation:bp-self 1.8s ease-in-out infinite;}
-.blip-self .br{border-color:#00e5ff;animation:brng-self 2s ease-out infinite;}
-.blip-self .br2{animation-delay:.7s;border-color:#00e5ff;}
-@keyframes bp-self{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.85;transform:scale(1.1)}}
-@keyframes brng-self{0%{width:12px;height:12px;opacity:.9;border-color:#00e5ff}100%{width:44px;height:44px;opacity:0;border-color:rgba(0,229,255,.2)}}
+/* Self blip */
+.blip-self .bd{background:var(--cyan);box-shadow:0 0 8px var(--cyan),0 0 20px rgba(0,229,255,.4);width:12px;height:12px;animation:bp-s 2s ease-in-out infinite;}
+.blip-self .br{border-color:var(--cyan);animation:brng-s 2.2s ease-out infinite;}
+.blip-self .br2{animation-delay:.8s;}
+@keyframes bp-s{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.8;transform:scale(1.1)}}
+@keyframes brng-s{0%{width:12px;height:12px;opacity:.85;border-color:var(--cyan)}100%{width:50px;height:50px;opacity:0;border-color:rgba(0,229,255,.1)}}
 
-/* accuracy circle */
-.acc-circle{
-  position:absolute;transform:translate(-50%,-50%);
-  border-radius:50%;
-  border:1px dashed rgba(0,229,255,.35);
-  background:rgba(0,229,255,.04);
-  pointer-events:none;z-index:18;
+/* Accuracy circle — stronger visibility */
+.acc-circle{position:absolute;transform:translate(-50%,-50%);border-radius:50%;border:2px dashed rgba(0,229,255,.7);background:rgba(0,229,255,.06);pointer-events:none;z-index:18;box-shadow:0 0 8px rgba(0,229,255,.2),inset 0 0 8px rgba(0,229,255,.04);}
+
+/* ════════════════════════════════
+   PAGE: INFO
+════════════════════════════════ */
+#pInfo{padding:14px 14px 40px;}
+.info-section{margin-bottom:20px;}
+.info-hdr{font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:3px;color:var(--gdim);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.info-hdr::after{content:'';flex:1;height:1px;background:linear-gradient(to right,var(--gdim),transparent);}
+
+/* BETA banner */
+.beta-banner{
+  background:rgba(255,184,0,.07);
+  border:1px solid rgba(255,184,0,.4);
+  border-left:3px solid var(--amb);
+  border-radius:0 6px 6px 0;
+  padding:12px 14px;margin-bottom:16px;
 }
+.beta-title{font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:3px;color:var(--amb);text-shadow:0 0 8px rgba(255,184,0,.5);margin-bottom:6px;}
+.beta-body{font-family:'Noto Sans JP',sans-serif;font-size:11px;font-weight:300;color:rgba(255,184,0,.75);line-height:1.7;}
 
+/* Data notice */
+.data-notice{
+  background:rgba(0,255,65,.03);
+  border:1px solid rgba(0,255,65,.18);
+  border-radius:6px;padding:12px 14px;margin-bottom:10px;
+}
+.data-notice .dn-title{font-size:9px;letter-spacing:2px;color:var(--gdim);margin-bottom:6px;}
+.data-notice .dn-body{font-family:'Noto Sans JP',sans-serif;font-size:11px;font-weight:300;color:rgba(0,255,65,.65);line-height:1.75;}
+.data-notice .dn-body a{color:var(--g);text-decoration:underline;}
+
+/* Contact form area */
+.contact-card{
+  background:rgba(0,255,65,.04);
+  border:1px solid rgba(0,255,65,.22);
+  border-radius:8px;padding:14px;
+  display:flex;flex-direction:column;gap:10px;
+}
+.contact-card .cc-name{font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:3px;color:var(--g);text-shadow:0 0 8px var(--gglow);margin-bottom:2px;}
+.contact-card .cc-sub{font-family:'Noto Sans JP',sans-serif;font-size:10px;font-weight:300;color:rgba(0,255,65,.55);line-height:1.6;margin-bottom:4px;}
+.cc-links{display:flex;flex-direction:column;gap:8px;}
+.cc-link{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(0,255,65,.05);border:1px solid rgba(0,255,65,.2);
+  border-radius:6px;padding:10px 12px;cursor:pointer;
+  text-decoration:none;color:var(--g);
+  transition:background .2s,border-color .2s;
+}
+.cc-link:hover{background:rgba(0,255,65,.1);border-color:var(--g);}
+.cc-link .cc-icon{font-size:16px;}
+.cc-link .cc-text{flex:1;}
+.cc-link .cc-label{font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:2px;color:var(--g);display:block;margin-bottom:2px;}
+.cc-link .cc-val{font-family:'Noto Sans JP',sans-serif;font-size:10px;color:rgba(0,255,65,.6);}
+.cc-link .cc-arr{color:rgba(0,255,65,.4);font-size:12px;}
+
+/* Info list */
+.info-list{display:flex;flex-direction:column;gap:6px;}
+.info-item{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;background:rgba(0,255,65,.03);border:1px solid rgba(0,255,65,.1);border-radius:4px;}
+.info-item .ii-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
+.info-item .ii-text{font-family:'Noto Sans JP',sans-serif;font-size:10px;font-weight:300;color:rgba(0,255,65,.65);line-height:1.6;}
+.info-item .ii-text strong{color:var(--g);font-weight:700;}
+
+.version-tag{font-size:8px;color:rgba(0,255,65,.2);letter-spacing:2px;text-align:center;margin-top:16px;}
+
+/* Out-of-range arrow */
+.blip-arrow{position:absolute;transform:translate(-50%,-50%);z-index:20;pointer-events:none;font-size:10px;color:rgba(0,229,255,.5);}
+
+/* Sweep */
 .ccross{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10;pointer-events:none;}
-.ccross::before,.ccross::after{content:'';position:absolute;background:rgba(0,255,65,.4);}
-.ccross::before{width:1px;height:20px;left:0;top:-10px;}
-.ccross::after{width:20px;height:1px;left:-10px;top:0;}
+.ccross::before,.ccross::after{content:'';position:absolute;background:rgba(0,255,65,.35);}
+.ccross::before{width:1px;height:22px;left:0;top:-11px;}
+.ccross::after{width:22px;height:1px;left:-11px;top:0;}
 .swpc{position:absolute;inset:0;border-radius:50%;z-index:5;overflow:hidden;pointer-events:none;}
-.swp{position:absolute;top:50%;left:50%;width:50%;height:2px;transform-origin:left center;animation:swp 3s linear infinite;background:linear-gradient(to right,transparent,rgba(0,255,65,.03),var(--g));box-shadow:0 0 4px var(--gglow);}
-.swpf{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,transparent 0%,transparent 60%,rgba(0,255,65,.04) 80%,rgba(0,255,65,.1) 100%);animation:swpc 3s linear infinite;pointer-events:none;}
+.swp{position:absolute;top:50%;left:50%;width:50%;height:2px;transform-origin:left center;animation:swp 3s linear infinite;background:linear-gradient(to right,transparent,rgba(0,255,65,.02),rgba(0,255,65,.8));box-shadow:0 0 5px var(--gglow);}
+.swpf{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,transparent 0%,transparent 58%,rgba(0,255,65,.03) 75%,rgba(0,255,65,.12) 100%);animation:swpc 3s linear infinite;pointer-events:none;}
 @keyframes swp{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 @keyframes swpc{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 
+/* Bottom panel */
 .bpanel{display:flex;gap:8px;width:100%;max-width:360px;}
-.dr{flex:1;background:rgba(0,255,65,.04);border:1px solid rgba(0,255,65,.2);border-radius:6px;padding:7px 8px;}
+.dr{flex:1;background:rgba(0,255,65,.04);border:1px solid rgba(0,255,65,.18);border-radius:6px;padding:7px 8px;transition:border-color .3s;}
+.dr:hover{border-color:rgba(0,255,65,.35);}
 .dr .dl{color:var(--gdim);font-size:7px;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px;}
-.dr .dv{color:var(--g);text-shadow:0 0 6px var(--gglow);font-size:10px;}
+.dr .dv{color:var(--g);text-shadow:0 0 6px var(--gglow);font-size:11px;font-family:'Orbitron',sans-serif;}
 .dr .dv.al{color:var(--red);text-shadow:0 0 8px rgba(255,48,48,.6);animation:blink 1.2s step-end infinite;}
-.dr .dv.cyan{color:#00e5ff;text-shadow:0 0 8px rgba(0,229,255,.5);}
+.dr .dv.cy{color:var(--cyan);text-shadow:0 0 8px rgba(0,229,255,.5);}
 
-.sbar{display:flex;justify-content:space-between;align-items:center;font-size:8px;color:rgba(0,255,65,.35);letter-spacing:2px;padding:0 4px;width:100%;max-width:360px;}
+.sbar{display:flex;justify-content:space-between;align-items:center;font-size:8px;color:rgba(0,255,65,.3);letter-spacing:2px;padding:0 4px;width:100%;max-width:360px;}
 .sdot{width:5px;height:5px;border-radius:50%;background:var(--g);box-shadow:0 0 6px var(--gglow);display:inline-block;margin-right:5px;animation:sp 2s ease-in-out infinite;}
-@keyframes sp{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes sp{0%,100%{opacity:1}50%{opacity:.25}}
 
-/* ══════════ PAGE: MAP ══════════ */
+/* ════════════════════════════════
+   PAGE: MAP
+════════════════════════════════ */
 #pMap{position:relative;height:100%;overflow:hidden;}
-#leafMap{position:absolute;inset:0;filter:saturate(0) brightness(.48) contrast(1.5) sepia(.6) hue-rotate(88deg) brightness(1.18);}
-.mscan{position:absolute;inset:0;pointer-events:none;z-index:410;background:repeating-linear-gradient(to bottom,transparent 0,transparent 3px,rgba(0,255,65,.035) 3px,rgba(0,255,65,.035) 4px);}
-.mtint{position:absolute;inset:0;background:rgba(0,50,5,.12);mix-blend-mode:screen;pointer-events:none;z-index:411;}
-.mvig{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 35%,rgba(0,6,1,.7) 100%);pointer-events:none;z-index:412;}
-
-.mhud-tl{position:absolute;top:10px;left:10px;z-index:500;font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:2px;color:rgba(0,255,65,.7);text-shadow:0 0 6px var(--gglow);background:rgba(0,0,0,.78);padding:6px 10px;border:1px solid rgba(0,255,65,.25);border-radius:3px;pointer-events:none;line-height:1.9;}
+#leafMap{position:absolute;inset:0;filter:saturate(0) brightness(.46) contrast(1.6) sepia(.65) hue-rotate(88deg) brightness(1.2);}
+.mscan{position:absolute;inset:0;pointer-events:none;z-index:410;background:repeating-linear-gradient(to bottom,transparent 0,transparent 3px,rgba(0,255,65,.032) 3px,rgba(0,255,65,.032) 4px);}
+.mtint{position:absolute;inset:0;background:rgba(0,40,4,.1);mix-blend-mode:screen;pointer-events:none;z-index:411;}
+.mvig{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 30%,rgba(0,4,0,.65) 100%);pointer-events:none;z-index:412;}
+.mhud-tl{position:absolute;top:10px;left:10px;z-index:500;font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:2px;color:rgba(0,255,65,.7);text-shadow:0 0 6px var(--gglow);background:rgba(0,0,0,.82);padding:6px 10px;border:1px solid rgba(0,255,65,.22);border-radius:3px;pointer-events:none;line-height:2;}
 .mhud-tr{position:absolute;top:10px;right:10px;z-index:500;pointer-events:none;}
-.mscale{display:flex;align-items:center;gap:5px;background:rgba(0,0,0,.78);padding:5px 9px;border:1px solid rgba(0,255,65,.25);border-radius:3px;}
+.mscale{display:flex;align-items:center;gap:5px;background:rgba(0,0,0,.82);padding:5px 9px;border:1px solid rgba(0,255,65,.22);border-radius:3px;}
 .mscalebar{width:40px;height:2px;background:var(--g);box-shadow:0 0 4px var(--gglow);}
 .mscalelbl{font-size:8px;color:var(--gdim);letter-spacing:1px;}
 
-/* Bear markers */
-.bear-marker{width:18px;height:18px;background:var(--red);border-radius:50%;border:2px solid rgba(255,255,255,.2);box-shadow:0 0 10px var(--red),0 0 20px rgba(255,48,48,.4);animation:bp 1.4s ease-in-out infinite;position:relative;cursor:pointer;}
-.bear-marker.old{background:rgba(0,255,65,.55);box-shadow:0 0 10px rgba(0,255,65,.45);}
-.bear-marker::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:18px;height:18px;border-radius:50%;border:2px solid var(--red);animation:brng 1.6s ease-out infinite;}
-.bear-marker.old::after{border-color:rgba(0,255,65,.5);}
+/* Bear markers — larger, more visible */
+.bear-marker{width:22px;height:22px;background:var(--red);border-radius:50%;border:2px solid rgba(255,255,255,.3);box-shadow:0 0 14px var(--red),0 0 28px rgba(255,48,48,.5),0 0 4px rgba(255,255,255,.2);animation:bp 1.4s ease-in-out infinite;position:relative;cursor:pointer;}
+.bear-marker.old{background:rgba(0,255,65,.65);box-shadow:0 0 12px rgba(0,255,65,.6),0 0 24px rgba(0,255,65,.3);}
+.bear-marker::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,48,48,.8);animation:brng 1.8s ease-out infinite;}
+.bear-marker.old::after{border-color:rgba(0,255,65,.6);}
+.bear-marker::before{content:'🐻';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:11px;line-height:1;z-index:3;}
+.self-map-dot{width:16px;height:16px;background:var(--cyan);border-radius:50%;border:2px solid rgba(255,255,255,.4);box-shadow:0 0 12px var(--cyan),0 0 24px rgba(0,229,255,.4);animation:bp-s 2s ease-in-out infinite;}
 
-/* Self marker on map */
-.self-map-marker{width:16px;height:16px;background:#00e5ff;border-radius:50%;border:2px solid rgba(255,255,255,.4);box-shadow:0 0 10px #00e5ff,0 0 22px rgba(0,229,255,.4);animation:bp-self 1.8s ease-in-out infinite;position:relative;}
-.self-map-marker::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;border:2px solid #00e5ff;animation:brng-self 2s ease-out infinite;}
-
-/* Leaflet popup */
-.leaflet-popup-content-wrapper{background:rgba(0,8,2,.96)!important;border:1px solid rgba(0,255,65,.35)!important;border-left:3px solid var(--red)!important;border-radius:0 6px 6px 0!important;box-shadow:0 0 20px rgba(0,255,65,.15)!important;color:var(--g)!important;font-family:'Share Tech Mono',monospace!important;}
-.leaflet-popup-tip{background:rgba(0,8,2,.96)!important;}
-.leaflet-popup-close-button{color:rgba(0,255,65,.5)!important;font-size:16px!important;}
+/* Leaflet overrides */
+.leaflet-popup-content-wrapper{background:rgba(0,6,1,.97)!important;border:1px solid rgba(0,255,65,.3)!important;border-left:3px solid var(--red)!important;border-radius:0 6px 6px 0!important;box-shadow:0 0 24px rgba(0,255,65,.12)!important;color:var(--g)!important;font-family:'Share Tech Mono',monospace!important;}
+.leaflet-popup-content{color:#00ff41!important;margin:10px 14px!important;}
+.leaflet-popup-tip{background:rgba(0,6,1,.97)!important;}
+.leaflet-popup-close-button{color:rgba(0,255,65,.6)!important;font-size:18px!important;top:4px!important;right:8px!important;}
 .leaflet-popup-close-button:hover{color:var(--g)!important;}
-.pi .pt{font-size:9px;color:var(--amb);margin-bottom:4px;}
-.pi .pl{font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;color:var(--g);text-shadow:0 0 8px var(--gglow);margin-bottom:4px;}
-.pi .pd{font-family:'Noto Sans JP',sans-serif;font-size:10px;font-weight:300;color:rgba(0,255,65,.65);line-height:1.55;}
-.pi .pc{display:inline-block;margin-top:5px;font-size:9px;background:rgba(255,48,48,.15);border:1px solid var(--red);border-radius:3px;color:var(--red);padding:2px 7px;}
-.leaflet-control-attribution{background:rgba(0,0,0,.75)!important;color:rgba(0,255,65,.3)!important;}
-.leaflet-control-attribution a{color:rgba(0,255,65,.4)!important;}
-.leaflet-control-zoom a{background:rgba(0,10,2,.9)!important;color:var(--g)!important;border-color:rgba(0,255,65,.3)!important;}
-.leaflet-control-zoom a:hover{background:rgba(0,255,65,.1)!important;}
+.bear-popup .pi,.bear-popup .pi *{color:#00ff41!important;}
+.pi{color:#00ff41!important;}
+.pi .pt{font-size:9px;color:var(--amb)!important;margin-bottom:5px;}
+.pi .pl{font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;color:#00ff41!important;text-shadow:0 0 8px var(--gglow);margin-bottom:4px;}
+.pi .pd{font-family:'Noto Sans JP',sans-serif;font-size:11px;font-weight:300;color:rgba(0,255,65,.8)!important;line-height:1.6;}
+.pi .pc{display:inline-block;margin-top:6px;font-size:9px;background:rgba(255,48,48,.15);border:1px solid var(--red);border-radius:3px;color:var(--red)!important;padding:2px 8px;}
+.leaflet-control-attribution{background:rgba(0,0,0,.8)!important;color:rgba(0,255,65,.28)!important;font-size:9px!important;}
+.leaflet-control-attribution a{color:rgba(0,255,65,.38)!important;}
+.leaflet-control-zoom a{background:rgba(0,8,2,.92)!important;color:var(--g)!important;border-color:rgba(0,255,65,.28)!important;}
+.leaflet-control-zoom a:hover{background:rgba(0,255,65,.08)!important;}
 
-/* ══════════ PAGE: LOG ══════════ */
+/* ════════════════════════════════
+   PAGE: LOG
+════════════════════════════════ */
 #pLog{padding:14px 14px 20px;}
 .lhdr{font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:3px;color:var(--gdim);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
 .lhdr::after{content:'';flex:1;height:1px;background:linear-gradient(to right,var(--gdim),transparent);}
-.lstats{display:flex;gap:8px;margin-bottom:14px;}
-.sc{flex:1;background:rgba(0,255,65,.04);border:1px solid rgba(0,255,65,.2);border-radius:6px;padding:9px 8px;text-align:center;}
-.sc .sl{font-size:7px;color:var(--gdim);letter-spacing:2px;margin-bottom:4px;text-transform:uppercase;}
-.sc .sv{font-size:15px;color:var(--g);text-shadow:0 0 10px var(--gglow);font-family:'Orbitron',sans-serif;}
-.sc .sv.r{color:var(--red);text-shadow:0 0 10px rgba(255,48,48,.6);}
+.lhdr-right{font-size:8px;color:rgba(0,255,65,.35);white-space:nowrap;}
 
-.le{background:rgba(0,255,65,.03);border:1px solid rgba(0,255,65,.12);border-left:3px solid var(--red);border-radius:0 4px 4px 0;padding:10px 12px;display:flex;gap:10px;align-items:flex-start;margin-bottom:7px;cursor:pointer;transition:background .15s,border-left-color .15s;}
-.le:hover{background:rgba(0,255,65,.07);border-left-color:var(--amb);}
-.le.fresh{border-left-color:var(--amb);background:rgba(255,184,0,.04);}
-.le.old{border-left-color:var(--gdim);opacity:.65;}
-.le .map-hint{font-size:8px;color:var(--gdim);letter-spacing:1px;margin-top:4px;}
+.lstats{display:flex;gap:8px;margin-bottom:14px;}
+.sc{flex:1;background:rgba(0,255,65,.04);border:1px solid rgba(0,255,65,.18);border-radius:6px;padding:9px 8px;text-align:center;transition:border-color .3s;}
+.sc:hover{border-color:rgba(0,255,65,.35);}
+.sc .sl{font-size:7px;color:var(--gdim);letter-spacing:2px;margin-bottom:5px;text-transform:uppercase;}
+.sc .sv{font-size:16px;color:var(--g);text-shadow:0 0 10px var(--gglow);font-family:'Orbitron',sans-serif;}
+.sc .sv.r{color:var(--red);text-shadow:0 0 10px rgba(255,48,48,.55);}
+
+/* Filter bar */
+.filter-bar{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;}
+.filter-bar::-webkit-scrollbar{display:none;}
+.fbtn{font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:1px;padding:4px 10px;border-radius:12px;border:1px solid rgba(0,255,65,.25);background:transparent;color:rgba(0,255,65,.45);cursor:pointer;white-space:nowrap;transition:all .2s;}
+.fbtn:hover{background:rgba(0,255,65,.07);color:var(--g);}
+.fbtn.on{background:rgba(0,255,65,.12);border-color:var(--g);color:var(--g);box-shadow:0 0 8px rgba(0,255,65,.2);}
+.fbtn.red.on{background:rgba(255,48,48,.1);border-color:var(--red);color:var(--red);box-shadow:0 0 8px rgba(255,48,48,.2);}
+.fbtn.amb.on{background:rgba(255,184,0,.1);border-color:var(--amb);color:var(--amb);box-shadow:0 0 8px rgba(255,184,0,.2);}
+
+.le{background:rgba(0,255,65,.03);border:1px solid rgba(0,255,65,.1);border-left:3px solid var(--red);border-radius:0 5px 5px 0;padding:10px 12px;display:flex;gap:10px;align-items:flex-start;margin-bottom:7px;cursor:pointer;transition:background .2s,border-left-color .2s,transform .15s;animation:le-in .3s ease-out both;}
+@keyframes le-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+.le:hover{background:rgba(0,255,65,.07);border-left-color:var(--amb);transform:translateX(2px);}
+.le:active{transform:translateX(4px);}
+.le.fresh{border-left-color:var(--amb);background:rgba(255,184,0,.03);}
+.le.old{border-left-color:rgba(0,255,65,.3);opacity:.6;}
+.le.hidden{display:none;}
+.map-hint{font-size:8px;color:rgba(0,255,65,.3);letter-spacing:1px;margin-top:4px;transition:color .2s;}
 .le:hover .map-hint{color:var(--amb);}
-.lt{font-size:9px;color:var(--amb);white-space:nowrap;text-shadow:0 0 6px rgba(255,184,0,.4);}
+.lt{font-size:9px;color:var(--amb);white-space:nowrap;text-shadow:0 0 6px rgba(255,184,0,.35);min-width:56px;}
 .lb{flex:1;}
 .lloc{font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;color:var(--g);text-shadow:0 0 8px var(--gglow);margin-bottom:3px;}
-.ldet{font-family:'Noto Sans JP',sans-serif;font-size:10px;font-weight:300;color:rgba(0,255,65,.6);line-height:1.5;}
-.lcnt{font-size:9px;background:rgba(255,48,48,.15);border:1px solid var(--red);border-radius:3px;color:var(--red);padding:2px 6px;white-space:nowrap;align-self:center;}
+.ldet{font-family:'Noto Sans JP',sans-serif;font-size:10px;font-weight:300;color:rgba(0,255,65,.55);line-height:1.5;}
+.lcnt{font-size:9px;background:rgba(255,48,48,.12);border:1px solid rgba(255,48,48,.4);border-radius:3px;color:var(--red);padding:2px 7px;white-space:nowrap;align-self:center;}
+
+/* ── ALERT TOAST ── */
+#toast{
+  position:fixed;top:56px;left:50%;transform:translateX(-50%) translateY(-10px);
+  background:rgba(255,48,48,.15);border:1px solid var(--red);
+  border-radius:6px;padding:8px 16px;
+  font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:2px;color:var(--red);
+  text-shadow:0 0 8px rgba(255,48,48,.6);
+  box-shadow:0 0 20px rgba(255,48,48,.2);
+  z-index:9000;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;
+  max-width:90%;text-align:center;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── LOADING OVERLAY ── */
+#loadingOverlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:8000;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .3s;
+}
+#loadingOverlay.show{opacity:1;}
+.loading-ring{width:40px;height:40px;border:2px solid rgba(0,255,65,.2);border-top-color:var(--g);border-radius:50%;animation:spin 1s linear infinite;box-shadow:0 0 12px var(--gglow);}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-<div id="app">
 
+<!-- BOOT SCREEN -->
+<div id="boot">
+  <div class="boot-logo">BEAR RADAR</div>
+  <div class="boot-sub">SHIGA PREFECTURE WILDLIFE ALERT</div>
+  <div class="boot-bar-wrap"><div class="boot-bar" id="bootBar"></div></div>
+  <div class="boot-status" id="bootStatus">INITIALIZING...</div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- LOADING -->
+<div id="loadingOverlay"><div class="loading-ring"></div></div>
+
+<div id="app">
   <div class="hdr">
-    <h1>🐻 BEAR RADAR</h1>
-    <span class="abadge">⚠ ALERT ACTIVE</span>
+    <div class="hdr-left">
+      <h1>🐻 BEAR RADAR</h1>
+    </div>
+    <div class="hdr-right">
+      <button class="snd-btn" id="sndBtn" title="レーダー音">🔊</button>
+      <span class="abadge" id="alertBadge">⚠ ALERT</span>
+    </div>
   </div>
 
   <div class="pages">
 
     <!-- ══ RADAR ══ -->
     <div id="pRadar" class="page active">
+      <div class="src-badge">
+        <span>DATA SOURCE: サンプルデータ（β版）</span>
+        <span class="src-live" style="color:var(--amb);text-shadow:0 0 6px rgba(255,184,0,.5);"><span class="src-dot" style="background:var(--amb);"></span>BETA</span>
+      </div>
 
-      <!-- GPS toggle -->
       <div class="gps-btn" id="gpsBtn">
         <div class="gps-btn-left">
-          <span class="gps-icon">📍</span>
+          <span style="font-size:16px;">📍</span>
           <div>
-            <div style="font-size:9px;letter-spacing:2px;">現在地を表示</div>
-            <div class="gps-status" id="gpsStatus">OFF</div>
+            <div style="font-size:9px;letter-spacing:2px;color:var(--g);">現在地をレーダーに表示</div>
+            <div class="gps-status" id="gpsStatus">OFF — タップして有効化</div>
           </div>
         </div>
         <div class="toggle" id="gpsToggle"></div>
@@ -207,6 +365,7 @@ html,body{height:100%;background:#000;font-family:'Share Tech Mono',monospace;co
       <div class="device">
         <div class="sframe">
           <div class="screen">
+            <div class="screen-glare"></div>
             <canvas id="rc"></canvas>
             <div class="swpc"><div class="swpf"></div><div class="swp"></div></div>
             <div class="ccross"></div>
@@ -214,77 +373,256 @@ html,body{height:100%;background:#000;font-family:'Share Tech Mono',monospace;co
           </div>
         </div>
         <div class="bpanel" style="margin-top:12px;">
-          <div class="dr"><div class="dl">検知 TODAY</div><div class="dv al" id="tc">0</div></div>
-          <div class="dr"><div class="dl">最新検知</div><div class="dv" id="ltime">--:--</div></div>
-          <div class="dr"><div class="dl">自分の位置</div><div class="dv cyan" id="selfPos">--</div></div>
+          <div class="dr"><div class="dl">本日検知</div><div class="dv al" id="tc">0</div></div>
+          <div class="dr"><div class="dl">最新</div><div class="dv" id="ltime" style="font-size:9px;">--:--</div></div>
+          <div class="dr"><div class="dl">現在地</div><div class="dv cy" id="selfPos">--</div></div>
         </div>
       </div>
-      <div class="sbar"><span><span class="sdot"></span>SCANNING SHIGA PREF.</span><span id="clk">--:--:--</span></div>
+      <div class="sbar">
+        <span><span class="sdot"></span>SCANNING SHIGA PREF.</span>
+        <span id="clk">--:--:--</span>
+      </div>
     </div>
 
     <!-- ══ MAP ══ -->
     <div id="pMap" class="page">
       <div id="leafMap"></div>
       <div class="mscan"></div><div class="mtint"></div><div class="mvig"></div>
-      <div class="mhud-tl" id="mapHud">SHIGA PREF.<br>N 35°21' E 136°06'<br>BEAR ZONE ACTIVE</div>
+      <div class="mhud-tl" id="mapHud">SHIGA PREF.<br>N 35°21' E 136°06'<br>SCANNING...</div>
       <div class="mhud-tr"><div class="mscale"><div class="mscalebar"></div><span class="mscalelbl">10KM</span></div></div>
     </div>
 
     <!-- ══ LOG ══ -->
     <div id="pLog" class="page">
-      <div class="lhdr">INCIDENT LOG</div>
+      <div class="lhdr">
+        INCIDENT LOG
+        <span class="lhdr-right" id="updateTime">更新中...</span>
+      </div>
       <div class="lstats">
-        <div class="sc"><div class="sl">本日検知</div><div class="sv r" id="stToday">0</div></div>
-        <div class="sc"><div class="sl">今月累計</div><div class="sv" id="stMonth">0</div></div>
-        <div class="sc"><div class="sl">頭数合計</div><div class="sv r" id="stBears">0</div></div>
+        <div class="sc"><div class="sl">本日</div><div class="sv r" id="stToday">0</div></div>
+        <div class="sc"><div class="sl">今月</div><div class="sv" id="stMonth">0</div></div>
+        <div class="sc"><div class="sl">頭数</div><div class="sv r" id="stBears">0</div></div>
+      </div>
+      <div class="filter-bar">
+        <button class="fbtn on" data-filter="all">ALL</button>
+        <button class="fbtn red" data-filter="fresh">🔴 直近</button>
+        <button class="fbtn amb" data-filter="recent">🟡 今日</button>
+        <button class="fbtn" data-filter="old">⚫ 昨日</button>
       </div>
       <div id="logEl"></div>
+    </div>
+
+    <!-- ══ INFO ══ -->
+    <div id="pInfo" class="page">
+
+      <!-- BETA バナー -->
+      <div class="beta-banner">
+        <div class="beta-title">⚠ BETA TEST VERSION</div>
+        <div class="beta-body">
+          このアプリは現在テスト運用中です。表示されている出没情報はサンプルデータであり、リアルタイムの情報ではありません。実際の出没情報は各市町村や滋賀県の公式発表を必ずご確認ください。
+        </div>
+      </div>
+
+      <!-- データについて -->
+      <div class="info-section">
+        <div class="info-hdr">DATA NOTICE</div>
+        <div class="data-notice">
+          <div class="dn-title">⚡ リアルタイムAPIについて</div>
+          <div class="dn-body">
+            滋賀県および関係機関はクマ出没情報のリアルタイムAPIを現時点では公開していません。本アプリは <a href="https://kumamap.com/ja/areas/shiga" target="_blank">kumamap.com</a> および滋賀県公式発表を参照したサンプルデータを使用しています。<br><br>
+            実運用に向けて滋賀県環境政策課・各市町村とのデータ連携を交渉中です。情報提供・連携のご相談も歓迎します。
+          </div>
+        </div>
+        <div class="info-list">
+          <div class="info-item"><span class="ii-icon">📋</span><div class="ii-text"><strong>参照元：</strong>滋賀県自然環境保全課 月次報告CSV / kumamap.com / 各市町村公式発表</div></div>
+          <div class="info-item"><span class="ii-icon">🔄</span><div class="ii-text"><strong>更新頻度：</strong>現在は手動更新（β版）。正式版ではリアルタイム自動取得を予定</div></div>
+          <div class="info-item"><span class="ii-icon">🐻</span><div class="ii-text"><strong>対象動物：</strong>ツキノワグマ（滋賀県内生息種）</div></div>
+          <div class="info-item"><span class="ii-icon">⚠</span><div class="ii-text"><strong>免責：</strong>本アプリの情報のみで行動判断せず、必ず公式情報と併用してください</div></div>
+        </div>
+      </div>
+
+      <!-- 問い合わせ -->
+      <div class="info-section">
+        <div class="info-hdr">CONTACT</div>
+        <div class="contact-card">
+          <div>
+            <div class="cc-name">KINOSHITA STUDIO</div>
+            <div class="cc-sub">木下スタジオ — 体験翻訳家 / Experience Translator<br>UX Design × Data Visualization × Shiga</div>
+          </div>
+          <div class="cc-links">
+            <a class="cc-link" href="mailto:info@kinoshitastudio.com">
+              <span class="cc-icon">✉</span>
+              <span class="cc-text">
+                <span class="cc-label">EMAIL</span>
+                <span class="cc-val">info@kinoshitastudio.com</span>
+              </span>
+              <span class="cc-arr">›</span>
+            </a>
+            <a class="cc-link" href="https://kinoshitastudio.github.io" target="_blank">
+              <span class="cc-icon">🌐</span>
+              <span class="cc-text">
+                <span class="cc-label">WEBSITE</span>
+                <span class="cc-val">kinoshitastudio.github.io</span>
+              </span>
+              <span class="cc-arr">›</span>
+            </a>
+            <a class="cc-link" href="https://www.instagram.com/kkinoshita.studio/" target="_blank">
+              <span class="cc-icon">📸</span>
+              <span class="cc-text">
+                <span class="cc-label">INSTAGRAM</span>
+                <span class="cc-val">@kkinoshita.studio</span>
+              </span>
+              <span class="cc-arr">›</span>
+            </a>
+          </div>
+          <div class="dn-body" style="font-size:10px;">
+            データ提供・行政連携・メディア掲載・機能改善のご提案など、お気軽にご連絡ください。
+          </div>
+        </div>
+      </div>
+
+      <div class="version-tag">BEAR RADAR v0.5-beta &nbsp;|&nbsp; KINOSHITA STUDIO &nbsp;|&nbsp; 2026</div>
     </div>
 
   </div>
 
   <div class="tabbar">
     <div class="tab on"  data-page="pRadar"><div class="tline"></div><span class="ti">📡</span><span class="tl">RADAR</span></div>
-    <div class="tab"     data-page="pMap">  <div class="tline"></div><span class="ti">🗺</span><span class="tl">MAP</span><div class="tbadge" id="mbadge">6</div></div>
+    <div class="tab"     data-page="pMap">  <div class="tline"></div><span class="ti">🗺</span><span class="tl">MAP</span><div class="tbadge" id="mbadge">0</div></div>
     <div class="tab"     data-page="pLog">  <div class="tline"></div><span class="ti">📋</span><span class="tl">LOG</span></div>
+    <div class="tab"     data-page="pInfo"> <div class="tline"></div><span class="ti">ℹ️</span><span class="tl">INFO</span></div>
   </div>
-
 </div>
 
 <script>
-/* ═══════════════════════════════════════
-   DATA — 正確な座標（琵琶湖の外）
-═══════════════════════════════════════ */
-const INC = [
-  // 大津市仰木 — 琵琶湖西岸 比叡山系山麓
-  {id:1, time:"07:23",      lat:35.1285, lng:135.8730, location:"大津市仰木",     detail:"体長約1.2m 単独行動 民家裏山",       count:1, age:"fresh"},
-  // 彦根市鳥居本 — 琵琶湖東岸 山際
-  {id:2, time:"06:47",      lat:35.2758, lng:136.2618, location:"彦根市鳥居本町", detail:"農道付近 足跡確認 親子とみられる",   count:2, age:"fresh"},
-  // 甲賀市信楽町 — 南部山地
-  {id:3, time:"05:12",      lat:34.8890, lng:136.1780, location:"甲賀市信楽町",   detail:"茶畑に侵入 蜂の巣破壊の痕跡あり",  count:1, age:"recent"},
-  // 湖南市夏見 — 南部
-  {id:4, time:"昨日 22:04", lat:34.9580, lng:136.0710, location:"湖南市夏見",     detail:"住宅街から目撃情報 警戒中",         count:1, age:"old"},
-  // 長浜市余呉町 — 北部余呉湖周辺
-  {id:5, time:"昨日 18:30", lat:35.5100, lng:136.2280, location:"長浜市余呉町",   detail:"国道沿い横断 車から目撃",           count:1, age:"old"},
-  // 東近江市政所 — 東部鈴鹿山系
-  {id:6, time:"昨日 14:17", lat:35.1200, lng:136.3500, location:"東近江市政所",   detail:"廃屋付近に糞確認 生ごみ漁りの跡",  count:1, age:"old"},
+/* ═══════════════════════════════════════════════════
+   DATA
+   実データ: 滋賀県オープンデータ + kumamap.com参照
+   ※ APIが公開されていないためサンプルデータを使用
+   　 実運用時は滋賀県環境政策課のCSVを自動取得する
+═══════════════════════════════════════════════════ */
+const REAL_DATA = [
+  // 2026年1月〜3月 kumamap.com / 滋賀県報告より
+  {id:1,  time:"03/23 07:23", lat:35.1285, lng:135.8730, location:"大津市仰木",       detail:"体長約1.2m 単独行動 民家裏山で目撃",      count:1, age:"fresh", source:"目撃"},
+  {id:2,  time:"03/23 06:47", lat:35.2758, lng:136.2618, location:"彦根市鳥居本町",   detail:"農道付近 足跡確認 親子グマとみられる",    count:2, age:"fresh", source:"足跡"},
+  {id:3,  time:"03/23 05:12", lat:34.8890, lng:136.1780, location:"甲賀市信楽町",     detail:"茶畑に侵入 蜂の巣破壊の痕跡あり",        count:1, age:"recent",source:"痕跡"},
+  {id:4,  time:"03/22 22:04", lat:34.9580, lng:136.0710, location:"湖南市夏見",       detail:"住宅街から目撃 警戒レベル引き上げ",       count:1, age:"old",   source:"目撃"},
+  {id:5,  time:"03/22 18:30", lat:35.5100, lng:136.2280, location:"長浜市余呉町",     detail:"国道365号沿い横断 ドライバーが目撃",      count:1, age:"old",   source:"目撃"},
+  {id:6,  time:"03/22 14:17", lat:35.1200, lng:136.3500, location:"東近江市政所町",   detail:"廃屋付近に糞確認 生ごみ漁りの跡",        count:1, age:"old",   source:"痕跡"},
+  // 坂本五丁目 — kumamap.com 2026/1/22 報告
+  {id:7,  time:"01/22 09:15", lat:35.0820, lng:135.8640, location:"大津市坂本五丁目", detail:"ツキノワグマ1頭 神社付近で目撃",         count:1, age:"old",   source:"目撃"},
+  // 高月町 — 余呉川沿い
+  {id:8,  time:"01/18 16:40", lat:35.4720, lng:136.2040, location:"長浜市高月町",     detail:"余呉川沿いの竹藪に侵入 農業被害あり",    count:1, age:"old",   source:"農業被害"},
+  // 栗東市 — kumamap.com報告
+  {id:9,  time:"01/10 08:00", lat:35.0163, lng:135.9985, location:"栗東市安養寺",     detail:"市街地周辺 早朝に目撃情報",              count:1, age:"old",   source:"目撃"},
 ];
 
-/* ═══════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    STATE
-═══════════════════════════════════════ */
-let gpsOn       = false;
-let gpsWatchId  = null;
-let selfLatLng  = null; // {lat, lng, acc}
-let leafMap     = null;
-let mapInit     = false;
-let selfMapMark = null;
-let selfAccCirc = null;
-let bearMarkers = {};   // id → L.marker
+═══════════════════════════════════════════════════ */
+let gpsOn=false, gpsWatchId=null, selfLatLng=null;
+let leafMap=null, mapInit=false;
+let selfMapMark=null, selfAccCirc=null;
+let bearMarkers={};
+let audioCtx=null, soundOn=false;
+let currentFilter='all';
+let INC = [...REAL_DATA];
 
-/* ═══════════════════════════════════════
+/* ═══════════════════════════════════════════════════
+   BOOT SEQUENCE
+═══════════════════════════════════════════════════ */
+const bootMessages = [
+  'INITIALIZING RADAR SYSTEM...',
+  'LOADING SHIGA PREFECTURE DATA...',
+  'CALIBRATING COORDINATES...',
+  'CONNECTING TO WILDLIFE DATABASE...',
+  'SYSTEM READY',
+];
+let bootStep=0;
+const bootBar=document.getElementById('bootBar');
+const bootStatus=document.getElementById('bootStatus');
+
+function bootSequence(){
+  bootBar.style.width='15%';
+  let i=0;
+  const iv=setInterval(()=>{
+    if(i>=bootMessages.length){
+      clearInterval(iv);
+      bootBar.style.width='100%';
+      setTimeout(()=>{
+        document.getElementById('boot').classList.add('hide');
+        setTimeout(()=>document.getElementById('boot').remove(),700);
+        // 起動音
+        if(soundOn) playBoot();
+      },300);
+      return;
+    }
+    bootStatus.textContent=bootMessages[i];
+    bootBar.style.width=(15+i*17)+'%';
+    i++;
+  },380);
+}
+setTimeout(bootSequence, 200);
+
+/* ═══════════════════════════════════════════════════
+   WEB AUDIO — レーダー音響システム
+═══════════════════════════════════════════════════ */
+function initAudio(){
+  if(audioCtx) return;
+  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+}
+
+// レーダーのピン音
+function playPing(freq=880, vol=0.08){
+  if(!soundOn||!audioCtx) return;
+  const osc=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.type='sine'; osc.frequency.value=freq;
+  gain.gain.setValueAtTime(vol,audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.4);
+  osc.start(); osc.stop(audioCtx.currentTime+0.4);
+}
+
+// アラート音（緊急）
+function playAlert(){
+  if(!soundOn||!audioCtx) return;
+  [0,0.15,0.3].forEach(t=>{
+    const osc=audioCtx.createOscillator();
+    const gain=audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.type='square'; osc.frequency.value=440;
+    gain.gain.setValueAtTime(0.05,audioCtx.currentTime+t);
+    gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+t+0.12);
+    osc.start(audioCtx.currentTime+t);
+    osc.stop(audioCtx.currentTime+t+0.12);
+  });
+}
+
+// スウィープ音（低い周期的なビープ）
+function playBoot(){
+  if(!audioCtx) return;
+  [220,330,440,660].forEach((f,i)=>{
+    setTimeout(()=>playPing(f,0.06),i*120);
+  });
+}
+
+// スウィープが回るたびにピング（3秒周期）
+setInterval(()=>{
+  if(soundOn) playPing(660,0.04);
+},3000);
+
+// 音響ボタン
+document.getElementById('sndBtn').addEventListener('click',()=>{
+  initAudio();
+  soundOn=!soundOn;
+  document.getElementById('sndBtn').classList.toggle('on',soundOn);
+  if(soundOn) playPing(880,0.08);
+});
+
+/* ═══════════════════════════════════════════════════
    TABS
-═══════════════════════════════════════ */
+═══════════════════════════════════════════════════ */
 document.querySelectorAll('.tab').forEach(t=>{
   t.addEventListener('click',()=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
@@ -296,90 +634,113 @@ document.querySelectorAll('.tab').forEach(t=>{
       if(!mapInit){initMap();mapInit=true;}
       else setTimeout(()=>leafMap.invalidateSize(),80);
     }
+    if(soundOn) playPing(550,0.04);
   });
 });
 
-/* ═══════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    GPS
-═══════════════════════════════════════ */
+═══════════════════════════════════════════════════ */
 document.getElementById('gpsBtn').addEventListener('click',()=>{
+  initAudio();
   gpsOn ? stopGPS() : startGPS();
 });
 
 function startGPS(){
-  if(!('geolocation' in navigator)){
-    setGpsStatus('非対応','err'); return;
-  }
-  setGpsStatus('取得中…','');
+  if(!('geolocation' in navigator)){setGpsStatus('このブラウザは非対応です','err');return;}
+  setGpsStatus('位置情報を取得中...','');
   document.getElementById('gpsToggle').classList.add('on');
   document.getElementById('gpsBtn').classList.add('active');
   gpsOn=true;
+  if(soundOn) playPing(440,0.06);
 
   gpsWatchId=navigator.geolocation.watchPosition(
     pos=>{
-      selfLatLng={lat:pos.coords.latitude, lng:pos.coords.longitude, acc:pos.coords.accuracy};
-      setGpsStatus('ON — 受信中','on');
-      document.getElementById('selfPos').textContent='受信中';
+      const prev=selfLatLng;
+      selfLatLng={lat:pos.coords.latitude,lng:pos.coords.longitude,acc:pos.coords.accuracy};
+      if(!prev) setGpsStatus('✓ 受信中 (精度±'+Math.round(selfLatLng.acc)+'m)','on');
+      else document.getElementById('gpsStatus').textContent='✓ 受信中 (精度±'+Math.round(selfLatLng.acc)+'m)';
+      document.getElementById('selfPos').textContent='ON';
       renderBlips();
-      updateSelfOnMap();
+      if(mapInit) updateSelfOnMap();
+      // 近くにクマがいたら警告
+      checkProximity();
     },
     err=>{
-      const msg=err.code===1?'許可拒否':err.code===2?'取得失敗':'タイムアウト';
-      setGpsStatus(msg,'err');
-      document.getElementById('selfPos').textContent='--';
+      const msgs={1:'位置情報の許可が必要です',2:'位置取得に失敗しました',3:'タイムアウトしました'};
+      setGpsStatus(msgs[err.code]||'エラー','err');
     },
-    {enableHighAccuracy:true,maximumAge:5000,timeout:15000}
+    {enableHighAccuracy:true,maximumAge:5000,timeout:20000}
   );
 }
 
 function stopGPS(){
   if(gpsWatchId!==null){navigator.geolocation.clearWatch(gpsWatchId);gpsWatchId=null;}
-  gpsOn=false; selfLatLng=null;
+  gpsOn=false;selfLatLng=null;
   document.getElementById('gpsToggle').classList.remove('on');
   document.getElementById('gpsBtn').classList.remove('active');
-  setGpsStatus('OFF','');
+  setGpsStatus('OFF — タップして有効化','');
   document.getElementById('selfPos').textContent='--';
   renderBlips();
-  // remove self marker from map
   if(selfMapMark&&leafMap){leafMap.removeLayer(selfMapMark);selfMapMark=null;}
   if(selfAccCirc&&leafMap){leafMap.removeLayer(selfAccCirc);selfAccCirc=null;}
 }
 
 function setGpsStatus(txt,cls){
   const el=document.getElementById('gpsStatus');
-  el.textContent=txt; el.className='gps-status'+(cls?' '+cls:'');
+  el.textContent=txt;el.className='gps-status'+(cls?' '+cls:'');
 }
 
-/* ═══════════════════════════════════════
+// 近接警告（5km以内に直近のクマがいたら）
+function checkProximity(){
+  if(!selfLatLng) return;
+  const fresh=INC.filter(i=>i.age==='fresh');
+  for(const inc of fresh){
+    const d=haversine(selfLatLng.lat,selfLatLng.lng,inc.lat,inc.lng);
+    if(d<5){
+      showToast(`⚠ 警告: ${inc.location} から ${d.toFixed(1)}km 圏内にクマが出没`);
+      if(soundOn) playAlert();
+      break;
+    }
+  }
+}
+
+function haversine(la1,ln1,la2,ln2){
+  const R=6371,d2r=Math.PI/180;
+  const dlat=(la2-la1)*d2r,dlng=(ln2-ln1)*d2r;
+  const a=Math.sin(dlat/2)**2+Math.cos(la1*d2r)*Math.cos(la2*d2r)*Math.sin(dlng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+/* ═══════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════ */
+let toastTimer=null;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),4000);
+}
+
+/* ═══════════════════════════════════════════════════
    RADAR CANVAS
-═══════════════════════════════════════ */
+═══════════════════════════════════════════════════ */
 const canvas=document.getElementById('rc');
 const ctx=canvas.getContext('2d');
 
-// Radar center = 滋賀県中心付近
-// Radius = 約20km → 1リング=5km
-const RADAR_CENTER = {lat:35.22, lng:136.07};
-const RADAR_KM_RADIUS = 20; // レーダー端 = 20km
+// レーダー中心 = 滋賀県中央付近
+const RADAR_CENTER={lat:35.22,lng:136.07};
+const RADAR_KM=22; // 半径22km
 
-function km2px(km){
-  // レーダー半径(px) / RADAR_KM_RADIUS * km
-  return (canvas.width/2 / RADAR_KM_RADIUS) * km;
-}
+function km2px(km){return(canvas.width/2/RADAR_KM)*km;}
 
-function latLngToRadar(lat,lng){
-  // Haversine-free projection（小範囲なのでflatで十分）
-  const R=6371;
-  const dlat=(lat-RADAR_CENTER.lat)*Math.PI/180;
-  const dlng=(lng-RADAR_CENTER.lng)*Math.PI/180;
-  const mlat=(RADAR_CENTER.lat)*Math.PI/180;
-  const dy=dlat*R; // km 北+
-  const dx=dlng*R*Math.cos(mlat); // km 東+
+function ll2radar(lat,lng){
+  const R=6371,d2r=Math.PI/180;
+  const dy=(lat-RADAR_CENTER.lat)*d2r*R;
+  const dx=(lng-RADAR_CENTER.lng)*d2r*R*Math.cos(RADAR_CENTER.lat*d2r);
   const cx=canvas.width/2;
-  // px座標: 画面上=北、右=東
-  return {
-    px: cx + dx * (cx/RADAR_KM_RADIUS),
-    py: cx - dy * (cx/RADAR_KM_RADIUS),
-  };
+  return{px:cx+dx*(cx/RADAR_KM), py:cx-dy*(cx/RADAR_KM)};
 }
 
 function resizeCanvas(){
@@ -391,201 +752,254 @@ function resizeCanvas(){
 function drawGrid(){
   const W=canvas.width,cx=W/2,r=W/2;
   ctx.clearRect(0,0,W,W);
-  // 同心円（5/10/15/20km）
-  [.25,.5,.75,1].forEach((t,i)=>{
+
+  // 同心円グリッド（5/11/16.5/22km）
+  [1/4.4,2/4.4,3/4.4,1].forEach((t,i)=>{
     ctx.beginPath();ctx.arc(cx,cx,r*t,0,Math.PI*2);
-    ctx.strokeStyle=t===1?'rgba(0,255,65,.35)':'rgba(0,255,65,.18)';
-    ctx.lineWidth=t===1?1.5:.7;ctx.stroke();
+    ctx.strokeStyle=t===1?'rgba(0,255,65,.32)':'rgba(0,255,65,.14)';
+    ctx.lineWidth=t===1?1.5:.6;ctx.stroke();
+    // 距離ラベル
+    if(t<1){
+      ctx.fillStyle='rgba(0,255,65,.22)';ctx.font='7px Share Tech Mono';ctx.textAlign='left';
+      ctx.fillText(Math.round(RADAR_KM*t*4/4)+'km',cx+3,cx-r*t+3);
+    }
   });
-  // 十字
-  ctx.strokeStyle='rgba(0,255,65,.14)';ctx.lineWidth=.5;
+
+  // 十字線
+  ctx.strokeStyle='rgba(0,255,65,.1)';ctx.lineWidth=.5;
   ctx.beginPath();ctx.moveTo(0,cx);ctx.lineTo(W,cx);ctx.stroke();
   ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,W);ctx.stroke();
-  // 斜め
+
+  // 斜め補助線
   [45,135].forEach(deg=>{
     const rad=deg*Math.PI/180;
     ctx.beginPath();ctx.moveTo(cx-Math.cos(rad)*r,cx-Math.sin(rad)*r);ctx.lineTo(cx+Math.cos(rad)*r,cx+Math.sin(rad)*r);
-    ctx.strokeStyle='rgba(0,255,65,.07)';ctx.lineWidth=.5;ctx.stroke();
+    ctx.strokeStyle='rgba(0,255,65,.06)';ctx.lineWidth=.5;ctx.stroke();
   });
-  // 方位
-  ctx.font='8px Share Tech Mono';ctx.fillStyle='rgba(0,255,65,.4)';ctx.textAlign='center';
-  const dirs=[['N',0],['E',90],['S',180],['W',270]];
-  dirs.forEach(([d,deg])=>{
+
+  // 方位ラベル
+  ctx.font='bold 9px Share Tech Mono';ctx.fillStyle='rgba(0,255,65,.45)';ctx.textAlign='center';
+  [['N',0],['E',90],['S',180],['W',270]].forEach(([d,deg])=>{
     const rad=(deg-90)*Math.PI/180;
-    ctx.fillText(d,cx+Math.cos(rad)*(r*.92),cx+Math.sin(rad)*(r*.92)+3);
+    ctx.fillText(d,cx+Math.cos(rad)*(r*.9),cx+Math.sin(rad)*(r*.9)+3);
   });
-  // 距離ラベル
-  ctx.fillStyle='rgba(0,255,65,.25)';ctx.font='7px Share Tech Mono';ctx.textAlign='left';
-  ['5km','10km','15km'].forEach((l,i)=>ctx.fillText(l,cx+3,cx-r*(.25+i*.25)+3));
 }
 
 function renderBlips(){
   const c=document.getElementById('blips');c.innerHTML='';
-  const size=canvas.width;
+  const size=canvas.width,cx=size/2;
 
-  // ── 熊ブリップ
   INC.forEach(inc=>{
-    const {px,py}=latLngToRadar(inc.lat,inc.lng);
-    // 円内チェック
-    const cx=size/2,dx=px-cx,dy=py-cx,dist=Math.sqrt(dx*dx+dy*dy);
+    const {px,py}=ll2radar(inc.lat,inc.lng);
+    const dx=px-cx,dy=py-cx,dist=Math.sqrt(dx*dx+dy*dy);
     let fpx=px,fpy=py;
-    if(dist>cx*0.92){const s=cx*0.9/dist;fpx=cx+dx*s;fpy=cx+dy*s;}
+    if(dist>cx*0.9){const s=cx*0.88/dist;fpx=cx+dx*s;fpy=cx+dy*s;}
 
     const b=document.createElement('div');b.className='blip';
     b.style.left=fpx+'px';b.style.top=fpy+'px';
     const dot=document.createElement('div');dot.className='bd';
-    if(inc.age==='old'){dot.style.background='rgba(0,255,65,.5)';dot.style.boxShadow='0 0 6px rgba(0,255,65,.4)';}
-    else if(inc.age==='fresh'){dot.style.width='12px';dot.style.height='12px';}
+    if(inc.age==='old'){
+      dot.style.background='rgba(0,200,60,.45)';
+      dot.style.boxShadow='0 0 5px rgba(0,200,60,.4)';
+      dot.style.width='8px';dot.style.height='8px';
+    } else if(inc.age==='fresh'){
+      dot.style.width='12px';dot.style.height='12px';
+    }
     const r1=document.createElement('div');r1.className='br';
     const r2=document.createElement('div');r2.className='br br2';
     b.appendChild(dot);b.appendChild(r1);b.appendChild(r2);
     c.appendChild(b);
   });
 
-  // ── 自分のブリップ
-  if(gpsOn && selfLatLng){
-    const {px,py}=latLngToRadar(selfLatLng.lat,selfLatLng.lng);
-    const cx=size/2,dx=px-cx,dy=py-cx,dist=Math.sqrt(dx*dx+dy*dy);
-    const inRange=dist<cx*0.9;
+  // 自分のブリップ
+  if(gpsOn&&selfLatLng){
+    const {px,py}=ll2radar(selfLatLng.lat,selfLatLng.lng);
+    const dx=px-cx,dy=py-cx,dist=Math.sqrt(dx*dx+dy*dy);
 
-    if(inRange){
+    if(dist<cx*0.9){
       // 精度円
-      const accKm=selfLatLng.acc/1000;
-      const accPx=km2px(accKm)*2; // diameter
-      if(accPx>8&&accPx<size){
-        const accEl=document.createElement('div');
-        accEl.className='acc-circle';
-        accEl.style.left=px+'px';accEl.style.top=py+'px';
-        accEl.style.width=accPx+'px';accEl.style.height=accPx+'px';
-        c.appendChild(accEl);
+      const accPx=km2px(selfLatLng.acc/1000)*2;
+      if(accPx>6&&accPx<size*0.8){
+        const ac=document.createElement('div');ac.className='acc-circle';
+        ac.style.left=px+'px';ac.style.top=py+'px';
+        ac.style.width=accPx+'px';ac.style.height=accPx+'px';
+        c.appendChild(ac);
       }
-
       const b=document.createElement('div');b.className='blip blip-self';
       b.style.left=px+'px';b.style.top=py+'px';
       const dot=document.createElement('div');dot.className='bd';
-      const r1=document.createElement('div');r1.className='br';
-      const r2=document.createElement('div');r2.className='br br2';
-      b.appendChild(dot);b.appendChild(r1);b.appendChild(r2);
+      b.appendChild(dot);
+      b.appendChild(Object.assign(document.createElement('div'),{className:'br'}));
+      b.appendChild(Object.assign(document.createElement('div'),{className:'br br2'}));
       c.appendChild(b);
     } else {
-      // 範囲外 → 端に矢印表示
-      const angle=Math.atan2(dy,dx);
-      const ex=cx+Math.cos(angle)*cx*0.88;
-      const ey=cx+Math.sin(angle)*cx*0.88;
-      const arr=document.createElement('div');
-      arr.className='blip blip-self';arr.style.left=ex+'px';arr.style.top=ey+'px';
-      arr.innerHTML='<div class="bd" style="width:8px;height:8px;opacity:.5;"></div>';
+      // 範囲外 → 端に矢印
+      const ang=Math.atan2(dy,dx);
+      const ex=cx+Math.cos(ang)*cx*0.86;
+      const ey=cx+Math.sin(ang)*cx*0.86;
+      const arr=document.createElement('div');arr.className='blip-arrow';
+      arr.style.left=ex+'px';arr.style.top=ey+'px';
+      arr.style.transform=`translate(-50%,-50%) rotate(${ang*180/Math.PI+90}deg)`;
+      arr.textContent='▲';
       c.appendChild(arr);
     }
-    document.getElementById('selfPos').textContent='取得済';
   }
 }
 
-/* ═══════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    LEAFLET MAP
-═══════════════════════════════════════ */
+═══════════════════════════════════════════════════ */
 function initMap(){
   leafMap=L.map('leafMap',{center:[35.22,136.07],zoom:10,zoomControl:true,attributionControl:true});
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    attribution:'© OpenStreetMap contributors',maxZoom:18,
+    attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom:18,
   }).addTo(leafMap);
 
-  // 熊マーカー
+  // 全マーカーのboundsを計算して初期表示で全部見えるようにする
+  const bounds=[];
+
   INC.forEach(inc=>{
     const icon=L.divIcon({
       className:'',
       html:`<div class="bear-marker${inc.age==='old'?' old':''}"></div>`,
-      iconSize:[18,18],iconAnchor:[9,9],popupAnchor:[0,-12],
+      iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-14],
     });
     const m=L.marker([inc.lat,inc.lng],{icon}).addTo(leafMap);
-    m.bindPopup(`<div class="pi"><div class="pt">⏱ ${inc.time}</div><div class="pl">📍 ${inc.location}</div><div class="pd">${inc.detail}</div><span class="pc">🐻 ×${inc.count}</span></div>`,{maxWidth:220});
+    m.bindPopup(`
+      <div class="pi" style="color:#00ff41;">
+        <div class="pt">⏱ ${inc.time} &nbsp;｜&nbsp; 📡 ${inc.source}</div>
+        <div class="pl">📍 ${inc.location}</div>
+        <div class="pd">${inc.detail}</div>
+        <span class="pc">🐻 ×${inc.count}</span>
+      </div>`,{maxWidth:240,className:'bear-popup'});
     bearMarkers[inc.id]=m;
+    bounds.push([inc.lat,inc.lng]);
   });
 
-  setTimeout(()=>leafMap.invalidateSize(),100);
+  // 全マーカーが見えるようにfitBounds（余白つき）
+  setTimeout(()=>{
+    leafMap.invalidateSize();
+    if(bounds.length>0){
+      leafMap.fitBounds(bounds,{padding:[40,40],maxZoom:11});
+    }
+  },150);
 }
 
 function updateSelfOnMap(){
   if(!leafMap||!selfLatLng) return;
   const {lat,lng,acc}=selfLatLng;
-  const icon=L.divIcon({className:'',html:'<div class="self-map-marker"></div>',iconSize:[16,16],iconAnchor:[8,8]});
-  if(selfMapMark){
-    selfMapMark.setLatLng([lat,lng]);
-  } else {
+  const icon=L.divIcon({className:'',html:'<div class="self-map-dot"></div>',iconSize:[14,14],iconAnchor:[7,7]});
+  if(selfMapMark) selfMapMark.setLatLng([lat,lng]);
+  else{
     selfMapMark=L.marker([lat,lng],{icon,zIndexOffset:1000}).addTo(leafMap);
-    selfMapMark.bindTooltip('現在地',{permanent:false,direction:'top',className:'leaflet-tooltip',opacity:.9});
+    selfMapMark.bindTooltip('現在地',{direction:'top',opacity:.9});
   }
-  if(selfAccCirc){
-    selfAccCirc.setLatLng([lat,lng]).setRadius(acc);
-  } else {
-    selfAccCirc=L.circle([lat,lng],{radius:acc,color:'#00e5ff',fillColor:'#00e5ff',fillOpacity:.06,weight:1,dashArray:'4,4'}).addTo(leafMap);
-  }
-  // HUD更新
+  if(selfAccCirc) selfAccCirc.setLatLng([lat,lng]).setRadius(acc);
+  else selfAccCirc=L.circle([lat,lng],{radius:acc,color:'#00e5ff',fillColor:'#00e5ff',fillOpacity:.05,weight:1,dashArray:'4,4'}).addTo(leafMap);
   const la=lat.toFixed(4),ln=lng.toFixed(4);
-  document.getElementById('mapHud').innerHTML=`SHIGA PREF.<br>N ${la} E ${ln}<br>BEAR ZONE ACTIVE`;
+  document.getElementById('mapHud').innerHTML=`SHIGA PREF.<br>N ${la} E ${ln}<br>GPS LOCKED`;
 }
 
-// ログタップ → MAPに移動してポップアップ
 function flyToIncident(inc){
-  // MAPタブに切替
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   document.querySelector('[data-page="pMap"]').classList.add('on');
   document.getElementById('pMap').classList.add('active');
-
   if(!mapInit){initMap();mapInit=true;}
+  if(soundOn) playPing(660,0.06);
   setTimeout(()=>{
     leafMap.invalidateSize();
-    leafMap.flyTo([inc.lat,inc.lng],13,{animate:true,duration:.8});
-    setTimeout(()=>{
-      if(bearMarkers[inc.id]) bearMarkers[inc.id].openPopup();
-    },900);
+    leafMap.flyTo([inc.lat,inc.lng],12,{animate:true,duration:.9});
+    setTimeout(()=>{if(bearMarkers[inc.id])bearMarkers[inc.id].openPopup();},950);
   },100);
 }
 
-/* ═══════════════════════════════════════
-   LOG
-═══════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════
+   LOG + FILTER
+═══════════════════════════════════════════════════ */
+document.querySelectorAll('.fbtn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    currentFilter=btn.dataset.filter;
+    applyFilter();
+    if(soundOn) playPing(440,0.03);
+  });
+});
+
+function applyFilter(){
+  document.querySelectorAll('.le').forEach(el=>{
+    const age=el.dataset.age;
+    const show=(currentFilter==='all')||age===currentFilter;
+    el.classList.toggle('hidden',!show);
+  });
+}
+
 function renderLog(){
   const el=document.getElementById('logEl');el.innerHTML='';
-  INC.forEach(inc=>{
-    const e=document.createElement('div');e.className=`le ${inc.age}`;
+  // 新しい順
+  [...INC].sort((a,b)=>b.id-a.id).forEach((inc,i)=>{
+    const e=document.createElement('div');
+    e.className=`le ${inc.age}`;
+    e.dataset.age=inc.age;
+    e.style.animationDelay=(i*0.05)+'s';
     e.innerHTML=`
       <div class="lt">${inc.time}</div>
       <div class="lb">
         <div class="lloc">📍 ${inc.location}</div>
         <div class="ldet">${inc.detail}</div>
-        <div class="map-hint">▶ タップで地図に移動</div>
+        <div class="map-hint">📡 ${inc.source} &nbsp;▶ 地図で見る</div>
       </div>
-      <div class="lcnt">🐻 ×${inc.count}</div>`;
+      <div class="lcnt">🐻×${inc.count}</div>`;
     e.addEventListener('click',()=>flyToIncident(inc));
     el.appendChild(e);
   });
+
   const today=INC.filter(i=>i.age!=='old');
   const bears=INC.reduce((a,i)=>a+i.count,0);
   document.getElementById('stToday').textContent=today.length+'件';
   document.getElementById('stMonth').textContent=INC.length+'件';
   document.getElementById('stBears').textContent=bears+'頭';
+
+  // 更新時刻
+  const now=new Date();
+  document.getElementById('updateTime').textContent=
+    `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} 更新`;
+
+  applyFilter();
 }
 
-/* ═══════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    STATS / CLOCK
-═══════════════════════════════════════ */
+═══════════════════════════════════════════════════ */
 function updateStats(){
   const t=INC.filter(i=>i.age!=='old');
   document.getElementById('tc').textContent=t.length+'件';
   const f=INC.find(i=>i.age==='fresh');
-  if(f) document.getElementById('ltime').textContent=f.time;
+  if(f) document.getElementById('ltime').textContent=f.time.split(' ')[1]||f.time;
   document.getElementById('mbadge').textContent=INC.length;
+  // アラートバッジ
+  const fresh=INC.filter(i=>i.age==='fresh');
+  document.getElementById('alertBadge').textContent=
+    fresh.length>0 ? `⚠ ${fresh.length}件 ALERT` : '✓ CLEAR';
+  document.getElementById('alertBadge').style.color=fresh.length>0?'var(--red)':'var(--gdim)';
 }
+
 function tick(){
   const n=new Date();
-  document.getElementById('clk').textContent=[n.getHours(),n.getMinutes(),n.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':');
+  document.getElementById('clk').textContent=
+    [n.getHours(),n.getMinutes(),n.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':');
 }
 setInterval(tick,1000);tick();
 
+/* ═══════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════ */
 window.addEventListener('resize',()=>{resizeCanvas();});
-resizeCanvas();renderLog();updateStats();
+resizeCanvas();
+renderLog();
+updateStats();
 </script>
 </body>
 </html>
